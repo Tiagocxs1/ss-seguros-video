@@ -1,0 +1,13 @@
+{
+  "name": "Sintia Sumpf",
+  "role": "Consultora",
+  "company": "S&S Seguros",
+  "language": "pt",
+  "gender": "female",
+  "notes": "Voz de consultora de seguros, tom caloroso e confiável, primeira pessoa",
+  "duration_seconds": 25,
+  "sample_rate": 16000,
+  "channels": 1,
+  "format": "pcm_s16le",
+  "created_at": "2026-08-09"
+}

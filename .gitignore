@@ -1,0 +1,50 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build
+dist/
+build/
+*.tsbuildinfo
+out/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Testing
+coverage/
+.nyc_output/
+
+# Cache
+.cache/
+*.cache
+
+# Media (regenerate)
+*.mp4
+*.mov
+*.wav
+*.mp3
+*.png
+*.jpg
+*.pdf
+
+# Temp
+*.tmp
+*.temp

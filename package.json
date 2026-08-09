@@ -1,0 +1,33 @@
+{
+  "name": "guardian-video",
+  "version": "1.0.0",
+  "description": "Guardian Monitoramento - video vertical 60s",
+  "scripts": {
+    "dev": "remotion studio",
+    "render": "remotion render GuardianPromo out/guardian-promo.mp4",
+    "render:fast": "remotion render GuardianPromo out/guardian-promo-fast.mp4 --crf 28",
+    "render:preview": "remotion render GuardianPromo out/guardian-promo-preview.mp4 --crf 28 --scale 0.5",
+    "render:lambda": "node scripts/lambda-render.mjs",
+    "lambda:deploy": "node scripts/lambda-deploy.mjs",
+    "lambda:setup": "node scripts/lambda-setup.mjs",
+    "voice:clone": "node scripts/voice-clone.mjs",
+    "upgrade": "remotion upgrade",
+    "lint": "tsc"
+  },
+  "license": "UNLICENSED",
+  "private": true,
+  "dependencies": {
+    "@remotion/cli": "4.0.506",
+    "@remotion/google-fonts": "4.0.506",
+    "@remotion/lambda": "4.0.506",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "remotion": "4.0.506",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.7",
+    "@types/web": "0.0.166",
+    "typescript": "5.9.3"
+  }
+}
