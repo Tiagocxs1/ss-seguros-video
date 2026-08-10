@@ -339,7 +339,7 @@ function parseArgs() {
 
 // ── Main ────────────────────────────────────────────────────────────────────
 async function main() {
-  const { voice, text, out, url, file, language, transcript,
+  let { voice, text, out, url, file, language, transcript,
       temperature, top_p, speed, repetition_penalty, latency, chunk_length, max_new_tokens } = parseArgs();
 
   if (!text) {

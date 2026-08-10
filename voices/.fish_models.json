@@ -3,5 +3,10 @@
     "refPath": "C:\\Users\\Admin\\Desktop\\Projetos\\guardian-video\\voices\\examples\\luisa_lopes\\reference.wav",
     "modelId": "bddd2316d39b49feb0c50795127172a0",
     "createdAt": "2026-08-09T20:32:11.927Z"
+  },
+  "sintia_sumpf": {
+    "refPath": "C:\\Users\\Admin\\Desktop\\Projetos\\guardian-video\\voices\\examples\\sintia_sumpf\\reference.wav",
+    "modelId": "537d4c550df24b45a4819051d5648136",
+    "createdAt": "2026-08-10T11:46:53.885Z"
   }
 }
