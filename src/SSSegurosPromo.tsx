@@ -445,7 +445,7 @@ export const SSSegurosPromo: React.FC = () => {
         <Audio key={idx} src={staticFile(sfx.file)} startFrom={sfx.frame} volume={sfx.volume} />
       ))}
 
-      {/* Scenes - each in its own Sequence */}
+{/* Scenes - each in its own Sequence (NO per-scene audio, merged covers all) */}
       {sceneMetas.map((meta) => (
         <Sequence
           key={meta.id}
