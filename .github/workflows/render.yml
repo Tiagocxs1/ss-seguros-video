@@ -48,10 +48,33 @@ jobs:
           path: out/ss-seguros-reel.mp4
           retention-days: 7
 
-      - name: Release (optional - on tag)
+      - name: Create/update GitHub Release (viewable in browser)
+        if: success()
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: latest
+          name: S&S Seguros Reel (latest)
+          body: Render automático do reel S&S Seguros. | Duração: ~97s | Arquivo: ss-seguros-reel.mp4
+          files: out/ss-seguros-reel.mp4
+          prerelease: false
+          overwrite_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload artifact (backup)
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ss-seguros-reel
+          path: out/ss-seguros-reel.mp4
+          retention-days: 7
+
+      - name: Release on tag (optional)
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v1
         with:
           files: out/ss-seguros-reel.mp4
+          tag_name: ${{ github.ref_name }}
+          name: S&S Seguros Reel ${{ github.ref_name }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
