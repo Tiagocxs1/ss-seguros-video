@@ -87,7 +87,6 @@ const SimpleCaption: React.FC<{
   const t = sceneFrame / FPS;
   const WORD_DELAY = 0.5;
   const FADE_IN_DUR = 0.12;
-  const FADE_OUT_DUR = 0.5;
 
   const rawWords = text.split(" ").filter(Boolean);
   const isKw = (w: string) =>
@@ -111,7 +110,6 @@ const SimpleCaption: React.FC<{
   }
 
   const chunkStart = (ci: number) => ci * WORD_DELAY;
-  const fadeOutStart = sceneDurationSec - FADE_OUT_DUR;
 
   return (
     <AbsoluteFill
@@ -134,18 +132,15 @@ const SimpleCaption: React.FC<{
       >
         {chunks.map((chunk, ci) => {
           const cs = chunkStart(ci);
-          if (t < cs) return null;
 
+          // Palavra aparece no seu slot com fade-in, fica visivel PARA SEMPRE
+          // (até a cena acabar e o Sequence ser desmontado)
           let opacity = 1;
           let scale = 1;
 
-          if (t >= fadeOutStart) {
-            const p = Math.min(1, (t - fadeOutStart) / FADE_OUT_DUR);
-            opacity = 1 - p;
-            scale = 1 - 0.04 * p;
-          } else if (t < cs + FADE_IN_DUR) {
-            const p = (t - cs) / FADE_IN_DUR;
-            opacity = p;
+          if (t < cs + FADE_IN_DUR) {
+            const p = Math.max(0, (t - cs) / FADE_IN_DUR);
+            opacity = Math.min(p, 1);
             scale = 0.88 + 0.12 * Easing.bezier(0.34, 1.56, 0.64, 1)(Math.min(p, 1));
           }
 
