@@ -1,7 +1,7 @@
 import subprocess
 from pathlib import Path
 
-SFX_DIR = Path(r"C:\Users\Admin\Desktop\Projetos\ss-seguros-video\public\audio\sfx")
+SFX_DIR = Path(__file__).resolve().parent.parent / "public" / "audio" / "sfx"
 SFX_DIR.mkdir(parents=True, exist_ok=True)
 
 def run_ffmpeg(filter_graph, out_file):

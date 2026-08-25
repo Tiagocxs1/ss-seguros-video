@@ -27,7 +27,7 @@ SEGMENTOS = [
     ("s21", "Converse com um especialista sobre seguro de vida e doenças graves.", 3.0),
 ]
 
-OUT_DIR = Path(r"C:\Users\Admin\Desktop\Projetos\ss-seguros-video\public\audio")
+OUT_DIR = Path(__file__).resolve().parent.parent / "public" / "audio"
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
 async def gerar(bloco, texto, dur_esperada):
