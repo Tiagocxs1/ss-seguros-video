@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   actions: write
 
 jobs:
@@ -34,7 +34,6 @@ jobs:
           body: Render automatico do reel S&S Seguros.
           files: out/ss-seguros-reel.mp4
           prerelease: false
-          overwrite_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - uses: actions/upload-artifact@v4
