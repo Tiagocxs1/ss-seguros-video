@@ -9,6 +9,7 @@ import {
   interpolate,
   delayRender,
   continueRender,
+  Easing,
 } from "remotion";
 import { scenes, sceneStartFrame, sceneDurationFrames, totalDurationFrames, FPS, Shot } from "./scenes/config";
 import { colors, loadFont, FONT_FAMILY, fontWeights } from "./theme";
@@ -19,7 +20,7 @@ function easeOutCubic(t: number) {
   return 1 - Math.pow(1 - t, 3);
 }
 
-// SFX mapping
+// ─── SFX mapping ─────────────────────────────────────────────────────────────
 const SFX_MAP: Record<string, { file: string; volume: number }> = {
   "impact hit": { file: "audio/sfx/impact_hit.mp3", volume: 0.8 },
   "whoosh curto": { file: "audio/sfx/whoosh_short.mp3", volume: 0.6 },
@@ -50,17 +51,13 @@ scenes.forEach((scene, sceneIdx) => {
     if (shot.effect) {
       const sfx = SFX_MAP[shot.effect.toLowerCase()];
       if (sfx) {
-        sfxTriggers.push({
-          frame: sceneStart,
-          file: sfx.file,
-          volume: sfx.volume,
-        });
+        sfxTriggers.push({ frame: sceneStart, file: sfx.file, volume: sfx.volume });
       }
     }
   }
 });
 
-// Pre-compute scene metadata for bulletproof rendering
+// ─── Scene metadata (pre-computed) ───────────────────────────────────────────
 interface SceneMeta {
   id: string;
   index: number;
@@ -80,10 +77,247 @@ const sceneMetas: SceneMeta[] = scenes.map((scene, i) => ({
   audio: scene.audio,
 }));
 
-// Helper: detect Lito images (horizontal, need fit-content)
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 const isLitoImage = (src: string) => src.includes("lito_real_");
 
-// SceneComponent with fit-content for Lito images
+// Split text into chunks of 2-3 words, keeping words of same kw together
+function chunkWords(words: string[], keywords: string[]): string[][] {
+  const chunks: string[][] = [];
+  let i = 0;
+  while (i < words.length) {
+    const w = words[i];
+    const isKw = keywords.some(k => k.toLowerCase() === w.toLowerCase());
+    if (isKw && i + 1 < words.length) {
+      chunks.push([w, words[i + 1]]);
+      i += 2;
+    } else if (i + 2 < words.length) {
+      chunks.push([words[i], words[i + 1], words[i + 2]]);
+      i += 3;
+    } else {
+      chunks.push([words[i]]);
+      i += 1;
+    }
+  }
+  return chunks.filter(c => c.length > 0);
+}
+
+// ─── DynamicCaption component ─────────────────────────────────────────────────
+// Word-by-word captions: 2–3 words/chunk, fade-in with scale, keyword glow
+const DynamicCaption: React.FC<{
+  lt: {
+    text: string;
+    highlightWords: string[];
+    keywords: string[];
+    startFrame: number;
+    duration: number;
+    yPosition?: number;
+    size?: number;
+  };
+  sceneFrame: number;
+  sceneDurationFrames: number;
+}> = ({ lt, sceneFrame, sceneDurationFrames }) => {
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  const wordRectsRef = React.useRef<{ left: number; width: number }[]>([]);
+  const [containerWidth, setContainerWidth] = React.useState(900);
+  const rightsRef = React.useRef<number[]>([]);
+
+  const words = lt.text.split(" ").filter(Boolean);
+  const chunks = chunkWords(words, lt.keywords);
+
+  // Per-word timing: spread evenly across scene duration
+  const minWordTime = 0.1; // min seconds per chunk
+  const chunkTime = Math.max(minWordTime, (sceneDurationFrames / FPS) / chunks.length);
+  const totalDisplayTime = chunks.length * chunkTime;
+
+  type WordTiming = { text: string; start: number; end: number; isKw: boolean };
+  const timings: WordTiming[] = chunks.map((chunk, ci) => {
+    const chunkWords_lower = chunk.map(w => w.toLowerCase().replace(/[.,!?;:]/g, ""));
+    const isKw = lt.keywords.some(k =>
+      chunkWords_lower.some(w => w === k.toLowerCase().replace(/[.,!?;:]/g, ""))
+    );
+    return {
+      text: chunk.join(" "),
+      start: ci * chunkTime,
+      end: (ci + 1) * chunkTime,
+      isKw,
+    };
+  });
+
+  // Track caption mentions
+  const mentionsRef = React.useRef(0);
+  if (sceneFrame === lt.startFrame + FADE) mentionsRef.current += 1;
+
+  // Measure container on mount
+  React.useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const measure = () => {
+      const allSpans = el.querySelectorAll("[data-word]");
+      wordRectsRef.current = Array.from(allSpans).map(s => {
+        const r = (s as HTMLElement).getBoundingClientRect();
+        const pr = el.parentElement?.getBoundingClientRect();
+        return { left: r.left - (pr?.left ?? 0), width: r.width };
+      });
+      if (el.parentElement) setContainerWidth(el.parentElement.getBoundingClientRect().width);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [lt.text]);
+
+  // Current time relative to scene
+  const t = Math.max(0, sceneFrame / FPS);
+  const progress = Math.min(t / totalDisplayTime, 1.2);
+
+  // Build caption lines and track word positions
+  const lines: { words: { text: string; isKw: boolean; right: number }[] }[] = [];
+  let currentLine: { words: { text: string; isKw: boolean; right: number }[] } = { words: [] };
+  const MAX_LINE_WIDTH_RATIO = 0.88;
+  const LINE_GAP_PX = 12;
+
+  timings.forEach((wt, i) => {
+    const rect = wordRectsRef.current[i];
+    const wordRight = rect ? rect.left + rect.width : 0;
+    if (currentLine.words.length >= 2 && wordRight > currentLine.words[0].right + containerWidth * MAX_LINE_WIDTH_RATIO) {
+      lines.push(currentLine);
+      currentLine = { words: [] };
+    }
+    currentLine.words.push({ text: wt.text, isKw: wt.isKw, right: wordRight });
+  });
+  if (currentLine.words.length > 0) lines.push(currentLine);
+
+  const lineMaxHeight = Math.max(...lines.map(l => l.words.length), 1);
+  const captionBlockScale = Math.min(1, (containerWidth * 0.9) / (lines[0]?.words[0]?.right ?? containerWidth));
+
+  const isKw = (w: string) => {
+    const wl = w.toLowerCase().replace(/[.,!?;:()]/g, "");
+    return lt.keywords.some(k => wl === k.toLowerCase().replace(/[.,!?;:()]/g, ""));
+  };
+
+  return (
+    <AbsoluteFill
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "flex-end",
+        paddingBottom: 130,
+        zIndex: 10,
+        pointerEvents: "none",
+      }}
+    >
+      <div
+        ref={containerRef}
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: LINE_GAP_PX,
+          transform: `scale(${captionBlockScale})`,
+          transformOrigin: "center bottom",
+        }}
+      >
+        {lines.map((line, li) => (
+          <div
+            key={li}
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              gap: "0.22em",
+              position: "relative",
+              padding: "0.15em 0.35em",
+            }}
+          >
+            {/* Text glow (blur layer) */}
+            <AbsoluteFill style={{ zIndex: 0, pointerEvents: "none" }}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "center",
+                  gap: "0.22em",
+                  filter: "blur(14px)",
+                  opacity: 0.55,
+                }}
+              >
+                {line.words.map((w, wi) => (
+                  <span
+                    key={wi}
+                    style={{
+                      fontFamily: FONT_FAMILY,
+                      fontWeight: w.isKw ? fontWeights.black : fontWeights.bold,
+                      fontSize: lt.size ?? 56,
+                      lineHeight: 1.1,
+                      letterSpacing: "-0.03em",
+                      color: w.isKw ? colors.branco : "rgba(255,255,255,0.7)",
+                    }}
+                  >
+                    {w.text}
+                  </span>
+                ))}
+              </div>
+            </AbsoluteFill>
+
+            {/* Main text layer */}
+            {line.words.map((w, wi) => {
+              const wordGlobalIdx = lines.slice(0, li).reduce((a, l) => a + l.words.length, 0) + wi;
+              const wt = timings[wordGlobalIdx];
+              if (!wt) return null;
+              const wtStart = wt.start;
+              const fadeInEnd = wtStart + 0.13; // 130ms fade-in
+              const fadeOutStart = Math.max(wtStart + 0.05, totalDisplayTime - 0.22);
+
+              let wordOpacity = 0;
+              let wordScale = 0.88;
+              if (t >= fadeOutStart) {
+                const fadeP = (t - fadeOutStart) / (totalDisplayTime - fadeOutStart + 0.01);
+                wordOpacity = Math.max(0, 1 - fadeP);
+                wordScale = 0.88 + 0.12 * (1 - fadeP);
+              } else if (t >= fadeInEnd) {
+                wordOpacity = 1;
+                wordScale = 1;
+              } else if (t >= wtStart && t < fadeInEnd) {
+                const p = (t - wtStart) / (fadeInEnd - wtStart);
+                wordOpacity = p;
+                wordScale = 0.88 + 0.12 * Easing.bezier(0.34, 1.56, 0.64, 1)(Math.min(p, 1));
+              }
+
+              if (wordOpacity <= 0.01) return null;
+
+              return (
+                <span
+                  key={wi}
+                  data-word="1"
+                  style={{
+                    fontFamily: FONT_FAMILY,
+                    fontWeight: w.isKw ? fontWeights.black : fontWeights.bold,
+                    fontSize: lt.size ?? 56,
+                    lineHeight: 1.1,
+                    letterSpacing: "-0.03em",
+                    color: w.isKw ? colors.branco : "rgba(255,255,255,0.82)",
+                    textShadow: w.isKw
+                      ? `0 0 22px rgba(255,255,255,0.35), 0 4px 16px rgba(0,0,0,0.8), 0 0 60px rgba(255,255,255,0.15)`
+                      : "0 2px 10px rgba(0,0,0,0.7)",
+                    opacity: wordOpacity,
+                    transform: `scale(${wordScale})`,
+                    display: "inline-block",
+                    position: "relative",
+                    zIndex: 1,
+                    willChange: "transform, opacity",
+                  }}
+                >
+                  {w.text}
+                </span>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+    </AbsoluteFill>
+  );
+};
+
+// ─── SceneComponent ───────────────────────────────────────────────────────────
 const SceneComponent: React.FC<{ meta: SceneMeta }> = ({ meta }) => {
   const frame = useCurrentFrame();
   const localFrame = frame - meta.startFrame;
@@ -109,7 +343,6 @@ const SceneComponent: React.FC<{ meta: SceneMeta }> = ({ meta }) => {
         }}
       >
         {isLito ? (
-          // LITO IMAGES: fit-content with blurred background
           <>
             {/* Blurred background layer */}
             <AbsoluteFill style={{ zIndex: 0 }}>
@@ -123,7 +356,7 @@ const SceneComponent: React.FC<{ meta: SceneMeta }> = ({ meta }) => {
                 }}
               />
             </AbsoluteFill>
-            {/* Foreground: fit-content (contain) - shows full horizontal image */}
+            {/* Foreground: fit-content (contain) */}
             <AbsoluteFill
               style={{
                 display: "flex",
@@ -143,12 +376,11 @@ const SceneComponent: React.FC<{ meta: SceneMeta }> = ({ meta }) => {
             </AbsoluteFill>
           </>
         ) : (
-          // PEXELS VERTICAL IMAGES: normal cover
           <Img src={staticFile(shot.image)} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
         )}
       </AbsoluteFill>
 
-      {/* B-roll PiP */}
+      {/* B-roll PiP - positioned in lower zone */}
       {shot.type === "broll-pip" && shot.broll && (
         <AbsoluteFill
           style={{
@@ -175,69 +407,25 @@ const SceneComponent: React.FC<{ meta: SceneMeta }> = ({ meta }) => {
         }}
       />
 
-      {/* Lower thirds - kinetic */}
+      {/* Dynamic word-by-word captions */}
       {meta.lowerThirds.map((lt, i) => {
-        if (localFrame < lt.startFrame || localFrame > lt.startFrame + lt.duration) return null;
-        const p = interpolate(localFrame, [lt.startFrame, lt.startFrame + 10], [0, 1], {
-          extrapolateLeft: "clamp",
-          extrapolateRight: "clamp",
-        });
-        if (p <= 0) return null;
-        const eased = 1 - Math.pow(1 - p, 3);
-        const words = lt.text.split(" ");
+        const wordStart = lt.startFrame;
+        const wordEnd = lt.startFrame + lt.duration;
+        if (localFrame < wordStart || localFrame > wordEnd) return null;
         return (
-          <AbsoluteFill
+          <DynamicCaption
             key={i}
-            style={{
-              left: "50%",
-              top: lt.yPosition ?? 1420,
-              transform: "translateX(-50%)",
-              maxWidth: 940,
-              textAlign: "center",
-              opacity: eased,
-              zIndex: 10,
-            }}
-          >
-            <div style={{ fontFamily: FONT_FAMILY, fontSize: lt.size ?? 48, lineHeight: 1.15, textAlign: "center" }}>
-              {words.map((w, wi) => {
-                const isH = lt.highlightWords.some((h) => w.toLowerCase().includes(h.toLowerCase().replace(/"/g, "")));
-                const wStart = lt.startFrame + Math.floor((wi / words.length) * lt.duration * 0.6);
-                const wp = interpolate(localFrame, [wStart, wStart + 8], [0, 1], {
-                  extrapolateLeft: "clamp",
-                  extrapolateRight: "clamp",
-                });
-                if (wp <= 0) return null;
-                const we = 1 - Math.pow(1 - wp, 3);
-                return (
-                  <span
-                    key={wi}
-                    style={{
-                      fontFamily: FONT_FAMILY,
-                      fontWeight: isH ? fontWeights.extraBold : fontWeights.medium,
-                      fontSize: isH ? (lt.size ?? 48) * 1.05 : lt.size ?? 48,
-                      letterSpacing: isH ? "-0.03em" : "-0.01em",
-                      color: colors.branco,
-                      textShadow: isH
-                        ? "0 0 14px rgba(255,255,255,0.45), 0 3px 10px rgba(0,0,0,0.6)"
-                        : "0 2px 8px rgba(0,0,0,0.5)",
-                      opacity: we,
-                      transform: `scale(${0.92 + 0.08 * we})`,
-                      display: "inline-block",
-                      marginRight: "0.13em",
-                    }}
-                  >
-                    {w}
-                  </span>
-                );
-              })}
-            </div>
-          </AbsoluteFill>
+            lt={lt}
+            sceneFrame={localFrame}
+            sceneDurationFrames={meta.durationFrames}
+          />
         );
       })}
     </AbsoluteFill>
   );
 };
 
+// ─── Main component ───────────────────────────────────────────────────────────
 export const SSSegurosPromo: React.FC = () => {
   const [handle] = React.useState(() => delayRender());
   React.useEffect(() => {
@@ -248,6 +436,9 @@ export const SSSegurosPromo: React.FC = () => {
     <AbsoluteFill style={{ backgroundColor: colors.fundo }}>
       {/* Background music */}
       <Audio src={staticFile("audio/trilha.mp3")} volume={0.07} />
+
+      {/* Narração contínua (merged, no gaps) - plays full video */}
+      <Audio src={staticFile("audio/narracao_merged.mp3")} volume={1} />
 
       {/* SFX - one per scene at scene start */}
       {sfxTriggers.map((sfx, idx) => (
@@ -263,7 +454,6 @@ export const SSSegurosPromo: React.FC = () => {
           name={meta.id}
         >
           <SceneComponent meta={meta} />
-          <Audio src={staticFile(meta.audio)} volume={1} />
         </Sequence>
       ))}
     </AbsoluteFill>
