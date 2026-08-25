@@ -226,18 +226,7 @@ const DynamicCaption: React.FC<{
               padding: "0.15em 0.35em",
             }}
           >
-            {/* Text glow (blur layer) */}
-            <AbsoluteFill style={{ zIndex: 0, pointerEvents: "none" }}>
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "center",
-                  gap: "0.22em",
-                  filter: "blur(14px)",
-                  opacity: 0.55,
-                }}
-              >
-{/* Main text layer — glow via text-shadow only, no blur filter */}
+            {/* Main text layer — glow via text-shadow only, no blur filter */}
             {line.words.map((w, wi) => {
               const wordGlobalIdx = lines.slice(0, li).reduce((a, l) => a + l.words.length, 0) + wi;
               const wt = timings[wordGlobalIdx];
