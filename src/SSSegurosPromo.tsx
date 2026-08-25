@@ -20,7 +20,6 @@ function easeOutCubic(t: number) {
   return 1 - Math.pow(1 - t, 3);
 }
 
-// ─── SFX mapping ─────────────────────────────────────────────────────────────
 const SFX_MAP: Record<string, { file: string; volume: number }> = {
   "impact hit": { file: "audio/sfx/impact_hit.mp3", volume: 0.8 },
   "whoosh curto": { file: "audio/sfx/whoosh_short.mp3", volume: 0.6 },
@@ -43,7 +42,6 @@ const SFX_MAP: Record<string, { file: string; volume: number }> = {
   "chime final": { file: "audio/sfx/chime_final.mp3", volume: 0.7 },
 };
 
-// Pre-compute all SFX triggers at module level
 const sfxTriggers: { frame: number; file: string; volume: number }[] = [];
 scenes.forEach((scene, sceneIdx) => {
   const sceneStart = sceneStartFrame(sceneIdx);
@@ -57,7 +55,6 @@ scenes.forEach((scene, sceneIdx) => {
   }
 });
 
-// ─── Scene metadata (pre-computed) ───────────────────────────────────────────
 interface SceneMeta {
   id: string;
   index: number;
@@ -77,128 +74,49 @@ const sceneMetas: SceneMeta[] = scenes.map((scene, i) => ({
   audio: scene.audio,
 }));
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 const isLitoImage = (src: string) => src.includes("lito_real_");
 
-// Split text into chunks of 2-3 words, keeping words of same kw together
-function chunkWords(words: string[], keywords: string[]): string[][] {
-  const chunks: string[][] = [];
+// ─── SimpleCaption: word-by-word, stays visible full scene ───────────────────
+const SimpleCaption: React.FC<{
+  text: string;
+  keywords: string[];
+  sceneFrame: number;
+  sceneDurationSec: number;
+  size?: number;
+}> = ({ text, keywords, sceneFrame, sceneDurationSec, size = 56 }) => {
+  const t = sceneFrame / FPS;
+  const WORD_DELAY = 0.5;
+  const FADE_IN_DUR = 0.12;
+  const FADE_OUT_DUR = 0.5;
+
+  const rawWords = text.split(" ").filter(Boolean);
+  const isKw = (w: string) =>
+    keywords.some(k => w.toLowerCase().replace(/[.,!?;:()]/g, "") === k.toLowerCase().replace(/[.,!?;:()]/g, ""));
+
+  // Group 2-3 words per chunk
+  const chunks: { text: string; isKw: boolean }[] = [];
   let i = 0;
-  while (i < words.length) {
-    const w = words[i];
-    const isKw = keywords.some(k => k.toLowerCase() === w.toLowerCase());
-    if (isKw && i + 1 < words.length) {
-      chunks.push([w, words[i + 1]]);
+  while (i < rawWords.length) {
+    const kwHere = isKw(rawWords[i]);
+    if (kwHere && i + 1 < rawWords.length) {
+      chunks.push({ text: rawWords[i] + " " + rawWords[i + 1], isKw: true });
       i += 2;
-    } else if (i + 2 < words.length) {
-      chunks.push([words[i], words[i + 1], words[i + 2]]);
+    } else if (i + 2 < rawWords.length) {
+      chunks.push({ text: rawWords[i] + " " + rawWords[i + 1] + " " + rawWords[i + 2], isKw: false });
       i += 3;
     } else {
-      chunks.push([words[i]]);
+      chunks.push({ text: rawWords[i], isKw: kwHere });
       i += 1;
     }
   }
-  return chunks.filter(c => c.length > 0);
-}
 
-// ─── DynamicCaption component ─────────────────────────────────────────────────
-// Word-by-word captions: 2–3 words/chunk, fade-in with scale, keyword glow
-const DynamicCaption: React.FC<{
-  lt: {
-    text: string;
-    highlightWords: string[];
-    keywords: string[];
-    startFrame: number;
-    duration: number;
-    yPosition?: number;
-    size?: number;
-  };
-  sceneFrame: number;
-  sceneDurationFrames: number;
-}> = ({ lt, sceneFrame, sceneDurationFrames }) => {
-  const containerRef = React.useRef<HTMLDivElement>(null);
-  const wordRectsRef = React.useRef<{ left: number; width: number }[]>([]);
-  const [containerWidth, setContainerWidth] = React.useState(900);
-  const rightsRef = React.useRef<number[]>([]);
-
-  const words = lt.text.split(" ").filter(Boolean);
-  const chunks = chunkWords(words, lt.keywords);
-
-  // Timing: fixed 0.75s per chunk → all words fit within scene duration
-  const chunkTime = 0.75; // seconds per chunk
-  const totalDisplayTime = chunks.length * chunkTime;
-
-  type WordTiming = { text: string; start: number; end: number; isKw: boolean };
-  const timings: WordTiming[] = chunks.map((chunk, ci) => {
-    const chunkWords_lower = chunk.map(w => w.toLowerCase().replace(/[.,!?;:]/g, ""));
-    const isKw = lt.keywords.some(k =>
-      chunkWords_lower.some(w => w === k.toLowerCase().replace(/[.,!?;:]/g, ""))
-    );
-    return {
-      text: chunk.join(" "),
-      start: ci * chunkTime,
-      end: (ci + 1) * chunkTime,
-      isKw,
-    };
-  });
-
-  // Track caption mentions
-  const mentionsRef = React.useRef(0);
-  if (sceneFrame === lt.startFrame + FADE) mentionsRef.current += 1;
-
-  // Measure container on mount
-  React.useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    const measure = () => {
-      const allSpans = el.querySelectorAll("[data-word]");
-      wordRectsRef.current = Array.from(allSpans).map(s => {
-        const r = (s as HTMLElement).getBoundingClientRect();
-        const pr = el.parentElement?.getBoundingClientRect();
-        return { left: r.left - (pr?.left ?? 0), width: r.width };
-      });
-      if (el.parentElement) setContainerWidth(el.parentElement.getBoundingClientRect().width);
-    };
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [lt.text]);
-
-  // Current time relative to scene
-  const t = Math.max(0, sceneFrame / FPS);
-  const progress = Math.min(t / totalDisplayTime, 1.2);
-
-  // Build caption lines and track word positions
-  const lines: { words: { text: string; isKw: boolean; right: number }[] }[] = [];
-  let currentLine: { words: { text: string; isKw: boolean; right: number }[] } = { words: [] };
-  const MAX_LINE_WIDTH_RATIO = 0.88;
-  const LINE_GAP_PX = 12;
-
-  timings.forEach((wt, i) => {
-    const rect = wordRectsRef.current[i];
-    const wordRight = rect ? rect.left + rect.width : 0;
-    if (currentLine.words.length >= 2 && wordRight > currentLine.words[0].right + containerWidth * MAX_LINE_WIDTH_RATIO) {
-      lines.push(currentLine);
-      currentLine = { words: [] };
-    }
-    currentLine.words.push({ text: wt.text, isKw: wt.isKw, right: wordRight });
-  });
-  if (currentLine.words.length > 0) lines.push(currentLine);
-
-  const lineMaxHeight = Math.max(...lines.map(l => l.words.length), 1);
-  const captionBlockScale = Math.min(1, (containerWidth * 0.9) / (lines[0]?.words[0]?.right ?? containerWidth));
-
-  const isKw = (w: string) => {
-    const wl = w.toLowerCase().replace(/[.,!?;:()]/g, "");
-    return lt.keywords.some(k => wl === k.toLowerCase().replace(/[.,!?;:()]/g, ""));
-  };
+  const chunkStart = (ci: number) => ci * WORD_DELAY;
+  const fadeOutStart = sceneDurationSec - FADE_OUT_DUR;
 
   return (
     <AbsoluteFill
       style={{
         display: "flex",
-        flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
         zIndex: 10,
@@ -206,86 +124,56 @@ const DynamicCaption: React.FC<{
       }}
     >
       <div
-        ref={containerRef}
         style={{
           display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          gap: LINE_GAP_PX,
-          maxWidth: "88%",
+          justifyContent: "center",
+          gap: "0.3em",
+          maxWidth: "85%",
+          flexWrap: "wrap",
         }}
       >
-        {lines.map((line, li) => (
-          <div
-            key={li}
-            style={{
-              display: "flex",
-              justifyContent: "center",
-              gap: "0.22em",
-              position: "relative",
-              padding: "0.15em 0.35em",
-            }}
-          >
-            {/* Main text layer — glow via text-shadow only, no blur filter */}
-            {line.words.map((w, wi) => {
-              const wordGlobalIdx = lines.slice(0, li).reduce((a, l) => a + l.words.length, 0) + wi;
-              const wt = timings[wordGlobalIdx];
-              if (!wt) return null;
-              const wtStart = wt.start;
-              const lastChunkEnd = timings[timings.length - 1].end;
-              const fadeInEnd = wtStart + 0.15;
-              const wordFadeOutStart = lastChunkEnd + 0.1;
-              const blockFadeOutStart = (sceneDurationFrames / FPS) - 0.35;
+        {chunks.map((chunk, ci) => {
+          const cs = chunkStart(ci);
+          if (t < cs) return null;
 
-              let wordOpacity = 0;
-              let wordScale = 0.88;
+          let opacity = 1;
+          let scale = 1;
 
-              if (t >= blockFadeOutStart) {
-                const fadeP = Math.min(1, (t - blockFadeOutStart) / 0.35);
-                wordOpacity = 1 - fadeP;
-                wordScale = 1 - 0.06 * fadeP;
-              } else if (t >= wordFadeOutStart) {
-                wordOpacity = 1;
-                wordScale = 1;
-              } else if (t >= fadeInEnd) {
-                wordOpacity = 1;
-                wordScale = 1;
-              } else if (t >= wtStart && t < fadeInEnd) {
-                const p = (t - wtStart) / (fadeInEnd - wtStart);
-                wordOpacity = Math.min(p, 1);
-                wordScale = 0.88 + 0.12 * Easing.bezier(0.34, 1.56, 0.64, 1)(Math.min(p, 1));
-              }
+          if (t >= fadeOutStart) {
+            const p = Math.min(1, (t - fadeOutStart) / FADE_OUT_DUR);
+            opacity = 1 - p;
+            scale = 1 - 0.04 * p;
+          } else if (t < cs + FADE_IN_DUR) {
+            const p = (t - cs) / FADE_IN_DUR;
+            opacity = p;
+            scale = 0.88 + 0.12 * Easing.bezier(0.34, 1.56, 0.64, 1)(Math.min(p, 1));
+          }
 
-              if (wordOpacity <= 0.01) return null;
+          if (opacity < 0.02) return null;
 
-              return (
-                <span
-                  key={wi}
-                  data-word="1"
-                  style={{
-                    fontFamily: FONT_FAMILY,
-                    fontWeight: w.isKw ? fontWeights.black : fontWeights.bold,
-                    fontSize: lt.size ?? 56,
-                    lineHeight: 1.1,
-                    letterSpacing: "-0.03em",
-                    color: w.isKw ? colors.branco : "rgba(255,255,255,0.82)",
-                    textShadow: w.isKw
-                      ? `0 0 20px rgba(255,255,255,0.4), 0 0 50px rgba(255,255,255,0.15), 0 2px 8px rgba(0,0,0,0.7)`
-                      : "0 0 12px rgba(255,255,255,0.2), 0 2px 8px rgba(0,0,0,0.7)",
-                    opacity: wordOpacity,
-                    transform: `scale(${wordScale})`,
-                    display: "inline-block",
-                    position: "relative",
-                    zIndex: 1,
-                    willChange: "transform, opacity",
-                  }}
-                >
-                  {w.text}
-                </span>
-              );
-            })}
-          </div>
-        ))}
+          return (
+            <span
+              key={ci}
+              style={{
+                fontFamily: FONT_FAMILY,
+                fontWeight: chunk.isKw ? fontWeights.black : fontWeights.bold,
+                fontSize: size,
+                lineHeight: 1.2,
+                letterSpacing: "-0.02em",
+                color: chunk.isKw ? "#ffffff" : "rgba(255,255,255,0.85)",
+                textShadow: chunk.isKw
+                  ? "0 0 18px rgba(255,255,255,0.5), 0 0 40px rgba(255,255,255,0.2), 0 2px 8px rgba(0,0,0,0.8)"
+                  : "0 0 10px rgba(255,255,255,0.2), 0 2px 8px rgba(0,0,0,0.7)",
+                opacity,
+                transform: `scale(${scale})`,
+                display: "inline-block",
+                willChange: "opacity, transform",
+              }}
+            >
+              {chunk.text}
+            </span>
+          );
+        })}
       </div>
     </AbsoluteFill>
   );
@@ -305,10 +193,10 @@ const SceneComponent: React.FC<{ meta: SceneMeta }> = ({ meta }) => {
 
   const shot = meta.shot;
   const isLito = isLitoImage(shot.image);
+  const sceneDurSec = meta.durationFrames / FPS;
 
   return (
     <AbsoluteFill style={{ backgroundColor: colors.fundo }}>
-      {/* Main image - ALWAYS renders for full scene duration */}
       <AbsoluteFill
         style={{
           transform: `scale(${scale})`,
@@ -318,7 +206,6 @@ const SceneComponent: React.FC<{ meta: SceneMeta }> = ({ meta }) => {
       >
         {isLito ? (
           <>
-            {/* Blurred background layer */}
             <AbsoluteFill style={{ zIndex: 0 }}>
               <Img
                 src={staticFile(shot.image)}
@@ -330,7 +217,6 @@ const SceneComponent: React.FC<{ meta: SceneMeta }> = ({ meta }) => {
                 }}
               />
             </AbsoluteFill>
-            {/* Foreground: fit-content (contain) */}
             <AbsoluteFill
               style={{
                 display: "flex",
@@ -354,7 +240,6 @@ const SceneComponent: React.FC<{ meta: SceneMeta }> = ({ meta }) => {
         )}
       </AbsoluteFill>
 
-      {/* B-roll PiP - positioned in lower zone */}
       {shot.type === "broll-pip" && shot.broll && (
         <AbsoluteFill
           style={{
@@ -369,7 +254,6 @@ const SceneComponent: React.FC<{ meta: SceneMeta }> = ({ meta }) => {
         </AbsoluteFill>
       )}
 
-      {/* Vignette overlay */}
       <AbsoluteFill
         style={{
           background:
@@ -381,20 +265,17 @@ const SceneComponent: React.FC<{ meta: SceneMeta }> = ({ meta }) => {
         }}
       />
 
-      {/* Dynamic word-by-word captions */}
-      {meta.lowerThirds.map((lt, i) => {
-        const wordStart = lt.startFrame;
-        const wordEnd = lt.startFrame + lt.duration;
-        if (localFrame < wordStart || localFrame > wordEnd) return null;
-        return (
-          <DynamicCaption
-            key={i}
-            lt={lt}
-            sceneFrame={localFrame}
-            sceneDurationFrames={meta.durationFrames}
-          />
-        );
-      })}
+      {/* Captions: show for the ENTIRE scene — no outer time guard */}
+      {meta.lowerThirds.map((lt, i) => (
+        <SimpleCaption
+          key={i}
+          text={lt.text}
+          keywords={lt.keywords}
+          sceneFrame={localFrame}
+          sceneDurationSec={sceneDurSec}
+          size={lt.size}
+        />
+      ))}
     </AbsoluteFill>
   );
 };
@@ -408,18 +289,13 @@ export const SSSegurosPromo: React.FC = () => {
 
   return (
     <AbsoluteFill style={{ backgroundColor: colors.fundo }}>
-      {/* Background music */}
       <Audio src={staticFile("audio/trilha.mp3")} volume={0.07} />
-
-      {/* Narração contínua (merged, no gaps) - plays full video */}
       <Audio src={staticFile("audio/narracao_merged.mp3")} volume={1} />
 
-      {/* SFX - one per scene at scene start */}
       {sfxTriggers.map((sfx, idx) => (
         <Audio key={idx} src={staticFile(sfx.file)} startFrom={sfx.frame} volume={sfx.volume} />
       ))}
 
-{/* Scenes - each in its own Sequence (NO per-scene audio, merged covers all) */}
       {sceneMetas.map((meta) => (
         <Sequence
           key={meta.id}
