@@ -124,9 +124,8 @@ const DynamicCaption: React.FC<{
   const words = lt.text.split(" ").filter(Boolean);
   const chunks = chunkWords(words, lt.keywords);
 
-  // Per-word timing: spread evenly across scene duration
-  const minWordTime = 0.1; // min seconds per chunk
-  const chunkTime = Math.max(minWordTime, (sceneDurationFrames / FPS) / chunks.length);
+  // Timing: fixed 0.75s per chunk → all words fit within scene duration
+  const chunkTime = 0.75; // seconds per chunk
   const totalDisplayTime = chunks.length * chunkTime;
 
   type WordTiming = { text: string; start: number; end: number; isKw: boolean };
@@ -201,8 +200,7 @@ const DynamicCaption: React.FC<{
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-        justifyContent: "flex-end",
-        paddingBottom: 130,
+        justifyContent: "center",
         zIndex: 10,
         pointerEvents: "none",
       }}
@@ -214,8 +212,7 @@ const DynamicCaption: React.FC<{
           flexDirection: "column",
           alignItems: "center",
           gap: LINE_GAP_PX,
-          transform: `scale(${captionBlockScale})`,
-          transformOrigin: "center bottom",
+          maxWidth: "88%",
         }}
       >
         {lines.map((line, li) => (
@@ -240,45 +237,33 @@ const DynamicCaption: React.FC<{
                   opacity: 0.55,
                 }}
               >
-                {line.words.map((w, wi) => (
-                  <span
-                    key={wi}
-                    style={{
-                      fontFamily: FONT_FAMILY,
-                      fontWeight: w.isKw ? fontWeights.black : fontWeights.bold,
-                      fontSize: lt.size ?? 56,
-                      lineHeight: 1.1,
-                      letterSpacing: "-0.03em",
-                      color: w.isKw ? colors.branco : "rgba(255,255,255,0.7)",
-                    }}
-                  >
-                    {w.text}
-                  </span>
-                ))}
-              </div>
-            </AbsoluteFill>
-
-            {/* Main text layer */}
+{/* Main text layer — glow via text-shadow only, no blur filter */}
             {line.words.map((w, wi) => {
               const wordGlobalIdx = lines.slice(0, li).reduce((a, l) => a + l.words.length, 0) + wi;
               const wt = timings[wordGlobalIdx];
               if (!wt) return null;
               const wtStart = wt.start;
-              const fadeInEnd = wtStart + 0.13; // 130ms fade-in
-              const fadeOutStart = Math.max(wtStart + 0.05, totalDisplayTime - 0.22);
+              const lastChunkEnd = timings[timings.length - 1].end;
+              const fadeInEnd = wtStart + 0.15;
+              const wordFadeOutStart = lastChunkEnd + 0.1;
+              const blockFadeOutStart = (sceneDurationFrames / FPS) - 0.35;
 
               let wordOpacity = 0;
               let wordScale = 0.88;
-              if (t >= fadeOutStart) {
-                const fadeP = (t - fadeOutStart) / (totalDisplayTime - fadeOutStart + 0.01);
-                wordOpacity = Math.max(0, 1 - fadeP);
-                wordScale = 0.88 + 0.12 * (1 - fadeP);
+
+              if (t >= blockFadeOutStart) {
+                const fadeP = Math.min(1, (t - blockFadeOutStart) / 0.35);
+                wordOpacity = 1 - fadeP;
+                wordScale = 1 - 0.06 * fadeP;
+              } else if (t >= wordFadeOutStart) {
+                wordOpacity = 1;
+                wordScale = 1;
               } else if (t >= fadeInEnd) {
                 wordOpacity = 1;
                 wordScale = 1;
               } else if (t >= wtStart && t < fadeInEnd) {
                 const p = (t - wtStart) / (fadeInEnd - wtStart);
-                wordOpacity = p;
+                wordOpacity = Math.min(p, 1);
                 wordScale = 0.88 + 0.12 * Easing.bezier(0.34, 1.56, 0.64, 1)(Math.min(p, 1));
               }
 
@@ -296,8 +281,8 @@ const DynamicCaption: React.FC<{
                     letterSpacing: "-0.03em",
                     color: w.isKw ? colors.branco : "rgba(255,255,255,0.82)",
                     textShadow: w.isKw
-                      ? `0 0 22px rgba(255,255,255,0.35), 0 4px 16px rgba(0,0,0,0.8), 0 0 60px rgba(255,255,255,0.15)`
-                      : "0 2px 10px rgba(0,0,0,0.7)",
+                      ? `0 0 20px rgba(255,255,255,0.4), 0 0 50px rgba(255,255,255,0.15), 0 2px 8px rgba(0,0,0,0.7)`
+                      : "0 0 12px rgba(255,255,255,0.2), 0 2px 8px rgba(0,0,0,0.7)",
                     opacity: wordOpacity,
                     transform: `scale(${wordScale})`,
                     display: "inline-block",
