@@ -28,6 +28,14 @@ jobs:
       - name: Install deps
         run: npm ci
 
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Python deps
+        run: pip install edge-tts Pillow requests
+
       - name: Install Chromium
         run: |
           sudo apt-get update
