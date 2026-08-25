@@ -8,5 +8,10 @@
     "refPath": "C:\\Users\\Admin\\Desktop\\Projetos\\guardian-video\\voices\\examples\\sintia_sumpf\\reference.wav",
     "modelId": "537d4c550df24b45a4819051d5648136",
     "createdAt": "2026-08-10T11:46:53.885Z"
+  },
+  "s01": {
+    "refPath": "C:\\Users\\Admin\\Desktop\\Projetos\\guardian-video\\public\\audio\\s01.mp3",
+    "modelId": "6923f42eb9364849895be1dde17b9394",
+    "createdAt": "2026-08-15T18:40:20.780Z"
   }
 }

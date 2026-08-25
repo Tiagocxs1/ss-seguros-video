@@ -1,0 +1,372 @@
+import React from "react";
+import { AbsoluteFill, useCurrentFrame, OffthreadVideo, staticFile, Easing, interpolate } from "remotion";
+import { colors, FONT_FAMILY } from "../theme";
+import { GuardianLogo } from "../components/Logo";
+import { reveal } from "./primitives";
+
+export type FrameVariantProps = {
+  videoSrc?: string;
+  title?: string;
+  subtitle?: string;
+  phone?: string;
+  ctaText?: string;
+  ctaUrl?: string;
+};
+
+const logoUrl = staticFile("logo/logo-branco-vermelho.png");
+
+interface Theme {
+  accent: string;
+  accentRgb: string;
+  dark: string;
+  darkRgb: string;
+  radial: string;
+  ring: string;
+  grid: string;
+  mesh: string;
+  cta: string;
+  bracket: string;
+  badgeBg: string;
+  badgeBorder: string;
+  badgeCol: string;
+  sideGrad: string;
+  glowRgb: string;
+}
+
+const themes: Record<string, Theme> = {
+  cyan: { accent: colors.ciano, accentRgb: "0,255,255", dark: colors.fundo, darkRgb: "2,38,54", radial: "rgba(0,255,255,.08)", ring: "rgba(0,255,255,.08)", grid: "rgba(0,255,255,.04)", mesh: "radial-gradient(ellipse at 30% 20%,rgba(0,255,255,.15),transparent 50%),radial-gradient(ellipse at 70% 80%,rgba(2,38,54,.2),transparent 50%)", cta: "cyan", bracket: colors.ciano, badgeBg: "rgba(0,255,255,.12)", badgeBorder: "rgba(0,255,255,.3)", badgeCol: colors.ciano, sideGrad: `linear-gradient(180deg,${colors.ciano},${colors.vermelho})`, glowRgb: "0,255,255" },
+  red: { accent: "#FF6B6B", accentRgb: "255,107,107", dark: colors.vermelho, darkRgb: "203,48,51", radial: "rgba(255,107,107,.1)", ring: "rgba(203,48,51,.1)", grid: "rgba(203,48,51,.04)", mesh: "radial-gradient(ellipse at 30% 20%,rgba(255,107,107,.15),transparent 50%),radial-gradient(ellipse at 70% 80%,rgba(203,48,51,.2),transparent 50%)", cta: "red", bracket: colors.vermelho, badgeBg: "rgba(203,48,51,.15)", badgeBorder: "rgba(203,48,51,.35)", badgeCol: "#FF6B6B", sideGrad: `linear-gradient(180deg,${colors.vermelho},#FF6B6B)`, glowRgb: "255,107,107" },
+  blue: { accent: "#00DDFF", accentRgb: "0,221,255", dark: colors.azul, darkRgb: "4,52,76", radial: "rgba(4,52,76,.12)", ring: "rgba(4,52,76,.12)", grid: "rgba(4,52,76,.05)", mesh: "radial-gradient(ellipse at 30% 20%,rgba(0,221,255,.15),transparent 50%),radial-gradient(ellipse at 70% 80%,rgba(4,52,76,.2),transparent 50%)", cta: "blue", bracket: colors.azul, badgeBg: "rgba(4,52,76,.2)", badgeBorder: "rgba(4,52,76,.4)", badgeCol: "#00DDFF", sideGrad: `linear-gradient(180deg,${colors.azul},#00DDFF)`, glowRgb: "0,221,255" },
+  graphite: { accent: "#A3B4BD", accentRgb: "163,180,189", dark: colors.grafite, darkRgb: "80,106,118", radial: "rgba(80,106,118,.1)", ring: "rgba(80,106,118,.1)", grid: "rgba(80,106,118,.04)", mesh: "radial-gradient(ellipse at 30% 20%,rgba(163,180,189,.12),transparent 50%),radial-gradient(ellipse at 70% 80%,rgba(80,106,118,.15),transparent 50%)", cta: "graphite", bracket: colors.grafite, badgeBg: "rgba(80,106,118,.15)", badgeBorder: "rgba(80,106,118,.3)", badgeCol: "#A3B4BD", sideGrad: `linear-gradient(180deg,${colors.grafite},#8899A6)`, glowRgb: "163,180,189" },
+  white: { accent: colors.branco, accentRgb: "255,255,255", dark: colors.fundo, darkRgb: "2,38,54", radial: "rgba(255,255,255,.08)", ring: "rgba(255,255,255,.08)", grid: "rgba(255,255,255,.03)", mesh: "radial-gradient(ellipse at 30% 20%,rgba(255,255,255,.12),transparent 50%),radial-gradient(ellipse at 70% 80%,rgba(2,38,54,.15),transparent 50%)", cta: "white", bracket: colors.branco, badgeBg: "rgba(255,255,255,.12)", badgeBorder: "rgba(255,255,255,.25)", badgeCol: colors.branco, sideGrad: `linear-gradient(180deg,${colors.branco},${colors.ciano})`, glowRgb: "255,255,255" },
+};
+
+interface BgStyle {
+  filter: string;
+  opacity: string;
+  topGrad: string;
+  botGrad: string;
+}
+
+const bgStyles: Record<string, BgStyle> = {
+  clean: { filter: "brightness(.35) saturate(1.1)", opacity: ".22", topGrad: "t-d", botGrad: "b-d" },
+  gridStrong: { filter: "brightness(.28) saturate(1.25)", opacity: ".3", topGrad: "t-d", botGrad: "b-d" },
+  particles: { filter: "brightness(.25) saturate(1.2)", opacity: ".32", topGrad: "t-d", botGrad: "b-d" },
+  glitch: { filter: "brightness(.28) saturate(1.2) contrast(1.15)", opacity: ".3", topGrad: "t-d", botGrad: "b-d" },
+  redTint: { filter: "brightness(.22) saturate(1.5) sepia(.35) hue-rotate(320deg)", opacity: ".38", topGrad: "t-d", botGrad: "b-d" },
+  darkMono: { filter: "brightness(.12) grayscale(1) contrast(1.5)", opacity: ".48", topGrad: "t-d", botGrad: "b-d" },
+  desat: { filter: "brightness(.28) saturate(.25)", opacity: ".3", topGrad: "t-d", botGrad: "b-d" },
+  cinematic: { filter: "brightness(.2) saturate(.8) contrast(1.1)", opacity: ".4", topGrad: "t-d", botGrad: "b-d" },
+  neon: { filter: "brightness(.3) saturate(1.4)", opacity: ".3", topGrad: "t-d", botGrad: "b-d" },
+  monoRed: { filter: "brightness(.2) sepia(.5) hue-rotate(320deg) contrast(1.3)", opacity: ".4", topGrad: "t-d", botGrad: "b-d" },
+  monoBlue: { filter: "brightness(.18) grayscale(.8) hue-rotate(190deg) contrast(1.2)", opacity: ".42", topGrad: "t-d", botGrad: "b-d" },
+  highContrast: { filter: "brightness(.42) contrast(1.25)", opacity: ".25", topGrad: "t-d", botGrad: "b-d" },
+  minimal: { filter: "brightness(.32) saturate(.7)", opacity: ".18", topGrad: "t-d", botGrad: "b-d" },
+  whitePure: { filter: "brightness(.3) saturate(.6)", opacity: ".15", topGrad: "t-d", botGrad: "b-d" },
+};
+
+function buildTopGrad(t: Theme, bs: BgStyle) {
+  return bs.topGrad === "t-d"
+    ? `linear-gradient(180deg, rgba(${t.darkRgb},.95) 0%, rgba(${t.accentRgb},.12) 50%, transparent 100%)`
+    : bs.topGrad;
+}
+function buildBotGrad(t: Theme, bs: BgStyle) {
+  return bs.botGrad === "b-d"
+    ? `linear-gradient(0deg, rgba(${t.darkRgb},.95) 0%, rgba(${t.accentRgb},.12) 50%, transparent 100%)`
+    : bs.botGrad;
+}
+
+function Grain() {
+  return (
+    <div style={{ position: "absolute", inset: 0, opacity: .035, pointerEvents: "none", backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='5' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`, animation: "grain 8s steps(10) infinite" }} />
+  );
+}
+
+function Scanlines() {
+  return <div style={{ position: "absolute", inset: 0, opacity: .03, pointerEvents: "none", background: "repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.15) 2px,rgba(0,0,0,.15) 4px)" }} />;
+}
+
+function RadialGlow({ color }: { color: string }) {
+  return <div style={{ position: "absolute", inset: 0, opacity: .12, pointerEvents: "none", background: `radial-gradient(ellipse at 50% 50%,transparent 40%,${color} 100%)` }} />;
+}
+
+function Grid({ color }: { color: string }) {
+  return <div style={{ position: "absolute", inset: 0, opacity: .025, pointerEvents: "none", backgroundImage: `linear-gradient(${color} 1px,transparent 1px),linear-gradient(90deg,${color} 1px,transparent 1px)`, backgroundSize: "70px 70px" }} />;
+}
+
+function Rings({ color }: { color: string }) {
+  return (
+    <>
+      <div style={{ position: "absolute", border: `1px solid ${color}`, borderRadius: "50%", width: "180%", height: "180%", top: "-40%", left: "-40%", animation: "spin 50s linear infinite" }} />
+      <div style={{ position: "absolute", border: `1px solid ${color}`, borderRadius: "50%", width: "120%", height: "120%", top: "-10%", left: "-10%", animation: "spin -35s linear infinite" }} />
+    </>
+  );
+}
+
+function Mesh({ gradient }: { gradient: string }) {
+  return <div style={{ position: "absolute", inset: 0, opacity: .18, pointerEvents: "none", background: gradient }} />;
+}
+
+function LightLeak({ color }: { color: string }) {
+  return <div style={{ position: "absolute", inset: 0, opacity: .07, pointerEvents: "none", background: `linear-gradient(135deg,rgba(255,255,255,.1),transparent 40%,rgba(${color},.1) 100%)` }} />;
+}
+
+function FilmBurn({ color }: { color: string }) {
+  return <div style={{ position: "absolute", inset: 0, opacity: .035, pointerEvents: "none", background: `radial-gradient(circle at 50% 50%,transparent 65%,${color} 100%)` }} />;
+}
+
+function Glitch({ color }: { color: string }) {
+  return <div style={{ position: "absolute", inset: 0, opacity: 0, animation: "glitch 6s ease-in-out infinite", background: `linear-gradient(90deg,transparent 50%,rgba(${color},.12) 50%)` }} />;
+}
+
+function Chromatic() {
+  return <div style={{ position: "absolute", inset: 0, mixBlendMode: "screen", opacity: .05, background: "linear-gradient(90deg,rgba(255,0,0,.5),transparent 33%,transparent 66%,rgba(0,0,255,.5))", animation: "chrom 3s ease-in-out infinite alternate" }} />;
+}
+
+function Particles({ color, variantId }: { color: string; variantId: string }) {
+  return (
+    <div style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
+      {Array.from({ length: 18 }).map((_, i) => (
+        <div key={i} style={{ position: "absolute", borderRadius: "50%", animation: "float 14s linear infinite", width: Math.random() * 3 + 1, height: Math.random() * 3 + 1, left: `${Math.random() * 100}%`, background: `rgba(${color},${.3 + Math.random() * .5})`, animationDuration: `${12 + Math.random() * 8}s`, animationDelay: `${Math.random() * 14}s` }} />
+      ))}
+    </div>
+  );
+}
+
+function GlobalStyles() {
+  return (
+    <>
+      <style>{`
+        @keyframes grain { 0%,100%{transform:translate(0,0)} 10%{transform:translate(-2%,1%)} 20%{transform:translate(1%,-1%)} 30%{transform:translate(-1%,2%)} 40%{transform:translate(2%,-2%)} 50%{transform:translate(-1%,1%)} 60%{transform:translate(1%,0)} 70%{transform:translate(0,2%)} 80%{transform:translate(-2%,-1%)} 90%{transform:translate(1%,-1%)} }
+        @keyframes spin { to{transform:rotate(360deg)} }
+        @keyframes float { 0%{transform:translateY(110%) scale(0);opacity:0} 10%{opacity:1} 90%{opacity:1} 100%{transform:translateY(-10%) scale(1);opacity:0} }
+        @keyframes glitch { 0%,99.2%{opacity:0} 99.4%{opacity:.12;clip-path:inset(15% 0 65% 0)} 99.6%{opacity:.06;clip-path:inset(65% 0 15% 0)} 100%{opacity:0} }
+        @keyframes chrom { 0%{transform:translateX(-2px)} 100%{transform:translateX(2px)} }
+        @keyframes videoIn { 0%{opacity:0;transform:scale(.95)} 100%{opacity:1;transform:scale(1)} }
+      `}</style>
+    </>
+  );
+}
+
+interface TextureLayersProps {
+  textures: string[];
+  theme: Theme;
+  particleCol?: string;
+  variantId: string;
+}
+
+function TextureLayers({ textures, theme, particleCol, variantId }: TextureLayersProps) {
+  return (
+    <AbsoluteFill style={{ pointerEvents: "none" }}>
+      {textures.includes("grain") && <Grain />}
+      {textures.includes("scan") && <Scanlines />}
+      {textures.includes("radial") && <RadialGlow color={theme.radial} />}
+      {textures.includes("grid") && <Grid color={theme.grid} />}
+      {textures.includes("rings") && <Rings color={theme.ring} />}
+      {textures.includes("mesh") && <Mesh gradient={theme.mesh} />}
+      {textures.includes("light") && <LightLeak color={theme.accentRgb} />}
+      {textures.includes("film") && <FilmBurn color={theme.radial} />}
+      {textures.includes("glitch") && <Glitch color={theme.accentRgb} />}
+      {textures.includes("chromatic") && <Chromatic />}
+      {textures.includes("particles") && particleCol && <Particles color={particleCol} variantId={variantId} />}
+      <GlobalStyles />
+    </AbsoluteFill>
+  );
+}
+
+function TopBar({ theme, topGrad, title, subtitle, badge, frame }: { theme: Theme; topGrad: string; title?: string; subtitle?: string; badge?: string; frame: number }) {
+  const topRev = reveal(frame, 6, -80, "y");
+  return (
+    <AbsoluteFill>
+      <div style={{ position: "absolute", top: 0, left: 0, right: 0, ...topRev }}>
+        <div style={{ background: topGrad, padding: "52px 56px 32px", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 20 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 24, width: "100%" }}>
+            <img src={logoUrl} alt="Guardian" style={{ width: 112, height: 112, objectFit: "contain", filter: "drop-shadow(0 8px 32px rgba(0,0,0,.7))" }} />
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", minWidth: 0 }}>
+              {title && <div style={{ fontFamily: FONT_FAMILY, fontWeight: 800, fontSize: 56, color: colors.branco, textShadow: "0 4px 28px rgba(0,0,0,.8)", textAlign: "right", letterSpacing: "-0.01em", lineHeight: 1.05 }}>{title}</div>}
+              {subtitle && <div style={{ fontFamily: FONT_FAMILY, fontWeight: 400, fontSize: 28, color: "#C6D0D9", textAlign: "right", marginTop: 6 }}>{subtitle}</div>}
+            </div>
+            {badge && (
+              <span style={{ fontSize: 15, fontWeight: 700, letterSpacing: ".15em", textTransform: "uppercase", padding: "8px 22px", borderRadius: "999px", border: `1px solid ${theme.badgeBorder}`, background: theme.badgeBg, color: theme.badgeCol }}>{badge}</span>
+            )}
+          </div>
+        </div>
+      </div>
+    </AbsoluteFill>
+  );
+}
+
+function BottomBar({ theme, botGrad, phone, ctaText, ctaUrl, frame }: { theme: Theme; botGrad: string; phone: string; ctaText: string; ctaUrl: string; frame: number }) {
+  const botRev = reveal(frame, 14, 80, "y");
+  return (
+    <AbsoluteFill>
+      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, ...botRev }}>
+        <div style={{ background: botGrad, padding: "32px 56px 44px", display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
+          <div style={{ fontSize: 22, fontWeight: 600, color: "#C6D0D9", textAlign: "center", width: "100%" }}>Fale Conosco</div>
+          <a href={ctaUrl} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 14, padding: "22px 48px", borderRadius: "100px", fontWeight: 700, fontSize: 26, textDecoration: "none", transition: "all .25s cubic-bezier(.16,1,.3,1)", border: "2px solid", position: "relative", overflow: "hidden", background: `rgba(${theme.accentRgb},.12)`, borderColor: `rgba(${theme.accentRgb},.4)`, color: theme.accent, "--glow-rgb": theme.glowRgb, boxShadow: `0 6px 32px rgba(${theme.accentRgb},.25)` }}>
+            <span style={{ position: "relative", zIndex: 1 }}>{ctaText}</span>
+            <span style={{ position: "absolute", inset: 0, background: "linear-gradient(90deg,transparent,rgba(255,255,255,.18),transparent)", transform: "translateX(-100%)", transition: "transform .4s ease" }} />
+          </a>
+          <div style={{ fontSize: 18, color: "#8B9098", lineHeight: 1.5, textAlign: "center", marginTop: 12, fontWeight: 400 }}>Proteção real. <strong style={{ color: colors.ciano, fontWeight: 700 }}>Presença local.</strong></div>
+        </div>
+      </div>
+    </AbsoluteFill>
+  );
+}
+
+function SideBars({ theme }: { theme: Theme }) {
+  return (
+    <AbsoluteFill>
+      <div style={{ position: "absolute", top: 0, bottom: 0, left: 0, width: 6, background: theme.sideGrad, opacity: .5 }} />
+      <div style={{ position: "absolute", top: 0, bottom: 0, right: 0, width: 6, background: theme.sideGrad, opacity: .5 }} />
+    </AbsoluteFill>
+  );
+}
+
+function Brackets({ theme }: { theme: Theme }) {
+  return (
+    <AbsoluteFill>
+      <div style={{ position: "absolute", width: 100, height: 100, border: `3px solid ${theme.bracket}`, opacity: .5, top: 32, left: 32, borderRight: "none", borderBottom: "none", borderRadius: "20px 0 0 0" }} />
+      <div style={{ position: "absolute", width: 100, height: 100, border: `3px solid ${theme.bracket}`, opacity: .5, top: 32, right: 32, borderLeft: "none", borderBottom: "none", borderRadius: "0 20px 0 0" }} />
+      <div style={{ position: "absolute", width: 100, height: 100, border: `3px solid ${theme.bracket}`, opacity: .5, bottom: 32, left: 32, borderRight: "none", borderTop: "none", borderRadius: "0 0 0 20px" }} />
+      <div style={{ position: "absolute", width: 100, height: 100, border: `3px solid ${theme.bracket}`, opacity: .5, bottom: 32, right: 32, borderLeft: "none", borderTop: "none", borderRadius: "0 0 20px 0" }} />
+    </AbsoluteFill>
+  );
+}
+
+function VideoOverlay({ videoSrc, frame }: { videoSrc?: string; frame: number }) {
+  if (!videoSrc) return null;
+  
+  // Video enters with scale animation
+  const videoRev = {
+    opacity: interpolate(frame, [0, 15], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }),
+    scale: interpolate(frame, [0, 15], [0.92, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: Easing.out(Easing.cubic) }),
+  };
+  
+  // Video is 9:16 but inset - 80% of frame size, centered
+  return (
+    <AbsoluteFill style={{ display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none", ...videoRev }}>
+      <div style={{ 
+        width: "82%", 
+        aspectRatio: "9/16",
+        borderRadius: "16px",
+        overflow: "hidden",
+        boxShadow: "0 24px 80px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.05)",
+        border: "1px solid rgba(0,255,255,.15)",
+      }}>
+        <OffthreadVideo 
+          src={staticFile(videoSrc!)} 
+          style={{ width: "100%", height: "100%", objectFit: "cover" }} 
+        />
+      </div>
+    </AbsoluteFill>
+  );
+}
+
+function TopBar({ theme, topGrad, title, subtitle, badge, frame }: { theme: Theme; topGrad: string; title?: string; subtitle?: string; badge?: string; frame: number }) {
+  const topRev = reveal(frame, 6, -80, "y");
+  return (
+    <AbsoluteFill>
+      <div style={{ position: "absolute", top: 0, left: 0, right: 0, ...topRev }}>
+        <div style={{ background: topGrad, padding: "56px 64px 36px", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 22 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 28, width: "100%" }}>
+            <img src={logoUrl} alt="Guardian" style={{ width: 136, height: 136, objectFit: "contain", filter: "drop-shadow(0 10px 40px rgba(0,0,0,.7))" }} />
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", minWidth: 0 }}>
+              {title && <div style={{ fontFamily: FONT_FAMILY, fontWeight: 800, fontSize: 68, color: colors.branco, textShadow: "0 5px 32px rgba(0,0,0,.8)", textAlign: "right", letterSpacing: "-0.01em", lineHeight: 1.02 }}>{title}</div>}
+              {subtitle && <div style={{ fontFamily: FONT_FAMILY, fontWeight: 400, fontSize: 32, color: "#C6D0D9", textAlign: "right", marginTop: 8 }}>{subtitle}</div>}
+            </div>
+            {badge && (
+              <span style={{ fontSize: 17, fontWeight: 700, letterSpacing: ".15em", textTransform: "uppercase", padding: "10px 26px", borderRadius: "999px", border: `1px solid ${theme.badgeBorder}`, background: theme.badgeBg, color: theme.badgeCol }}>{badge}</span>
+            )}
+          </div>
+        </div>
+      </div>
+    </AbsoluteFill>
+  );
+}
+
+function BottomBar({ theme, botGrad, phone, ctaText, ctaUrl, frame }: { theme: Theme; botGrad: string; phone: string; ctaText: string; ctaUrl: string; frame: number }) {
+  const botRev = reveal(frame, 14, 80, "y");
+  return (
+    <AbsoluteFill>
+      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, ...botRev }}>
+        <div style={{ background: botGrad, padding: "38px 64px 50px", display: "flex", flexDirection: "column", alignItems: "center", gap: 18 }}>
+          <div style={{ fontSize: 24, fontWeight: 600, color: "#C6D0D9", textAlign: "center", width: "100%" }}>Fale Conosco</div>
+          <a href={ctaUrl} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 16, padding: "26px 56px", borderRadius: "100px", fontWeight: 700, fontSize: 30, textDecoration: "none", transition: "all .25s cubic-bezier(.16,1,.3,1)", border: "2px solid", position: "relative", overflow: "hidden", background: `rgba(${theme.accentRgb},.12)`, borderColor: `rgba(${theme.accentRgb},.4)`, color: theme.accent, "--glow-rgb": theme.glowRgb, boxShadow: `0 8px 40px rgba(${theme.accentRgb},.25)` }}>
+            <span style={{ position: "relative", zIndex: 1 }}>{ctaText}</span>
+            <span style={{ position: "absolute", inset: 0, background: "linear-gradient(90deg,transparent,rgba(255,255,255,.18),transparent)", transform: "translateX(-100%)", transition: "transform .4s ease" }} />
+          </a>
+          <div style={{ fontSize: 20, color: "#8B9098", lineHeight: 1.5, textAlign: "center", marginTop: 14, fontWeight: 400 }}>Proteção real. <strong style={{ color: colors.ciano, fontWeight: 700 }}>Presença local.</strong></div>
+        </div>
+      </div>
+    </AbsoluteFill>
+  );
+}
+
+function SideBars({ theme }: { theme: Theme }) {
+  return (
+    <AbsoluteFill>
+      <div style={{ position: "absolute", top: 0, bottom: 0, left: 0, width: 8, background: theme.sideGrad, opacity: .5 }} />
+      <div style={{ position: "absolute", top: 0, bottom: 0, right: 0, width: 8, background: theme.sideGrad, opacity: .5 }} />
+    </AbsoluteFill>
+  );
+}
+
+function Brackets({ theme }: { theme: Theme }) {
+  return (
+    <AbsoluteFill>
+      <div style={{ position: "absolute", width: 120, height: 120, border: `4px solid ${theme.bracket}`, opacity: .5, top: 40, left: 40, borderRight: "none", borderBottom: "none", borderRadius: "24px 0 0 0" }} />
+      <div style={{ position: "absolute", width: 120, height: 120, border: `4px solid ${theme.bracket}`, opacity: .5, top: 40, right: 40, borderLeft: "none", borderBottom: "none", borderRadius: "0 24px 0 0" }} />
+      <div style={{ position: "absolute", width: 120, height: 120, border: `4px solid ${theme.bracket}`, opacity: .5, bottom: 40, left: 40, borderRight: "none", borderTop: "none", borderRadius: "0 0 0 24px" }} />
+      <div style={{ position: "absolute", width: 120, height: 120, border: `4px solid ${theme.bracket}`, opacity: .5, bottom: 40, right: 40, borderLeft: "none", borderTop: "none", borderRadius: "0 0 24px 0" }} />
+    </AbsoluteFill>
+  );
+}
+
+function createFrame(config: { name: string; themeKey: string; bg: number; bgStyle: string; textures: string[]; particleCol?: string; badge?: string; sides?: boolean; brackets?: boolean; defaultTitle: string; defaultSubtitle: string }) {
+  const { name, themeKey, bg, bgStyle, textures, particleCol, badge, sides, brackets, defaultTitle, defaultSubtitle } = config;
+  const theme = themes[themeKey];
+  const bs = bgStyles[bgStyle];
+  const topGrad = bs.topGrad === "t-d" ? `linear-gradient(180deg, rgba(${theme.darkRgb},.95) 0%, rgba(${theme.accentRgb},.12) 50%, transparent 100%)` : bs.topGrad;
+  const botGrad = bs.botGrad === "b-d" ? `linear-gradient(0deg, rgba(${theme.darkRgb},.95) 0%, rgba(${theme.accentRgb},.12) 50%, transparent 100%)` : bs.botGrad;
+
+  const Frame: React.FC<FrameVariantProps> = ({
+    videoSrc,
+    title = defaultTitle,
+    subtitle = defaultSubtitle,
+    phone = "(48) 3234-9001",
+    ctaText = "Link na Bio",
+    ctaUrl = "https://wa.me/554832349001",
+  }) => {
+    const frame = useCurrentFrame();
+    const video = videoSrc ? <VideoOverlay videoSrc={videoSrc} frame={frame} /> : null;
+
+    return (
+      <AbsoluteFill style={{ backgroundColor: colors.fundoEscuro }}>
+        {/* BACKGROUND LAYER - Full frame Guardian theme */}
+        <TextureLayers textures={textures} theme={theme} particleCol={particleCol} variantId={name} />
+
+        {/* VIDEO OVERLAY - Centered, inset 82% */}
+        {video}
+
+        {/* OVERLAY BARS - On top of everything */}
+        <TopBar theme={theme} topGrad={topGrad} title={title} subtitle={subtitle} badge={badge} frame={frame} />
+        <BottomBar theme={theme} botGrad={botGrad} phone={phone} ctaText={ctaText} ctaUrl={ctaUrl} frame={frame} />
+
+        {sides && <SideBars theme={theme} />}
+        {brackets && <Brackets theme={theme} />}
+      </AbsoluteFill>
+    );
+  };
+
+  Frame.displayName = `Frame${name}`;
+  return Frame;
+}
+
+// ===== 6 FRAMES: BACKGROUND + VIDEO INSET =====
+export const FrameCiano = createFrame({ name: "Ciano", themeKey: "cyan", bg: 0, bgStyle: "gridStrong", textures: ["grain", "scan", "grid", "rings", "radial"], defaultTitle: "Portaria Autônoma", defaultSubtitle: "Sua segurança evoluiu" });
+export const FrameVermelho = createFrame({ name: "Vermelho", themeKey: "red", bg: 3, bgStyle: "redTint", textures: ["grain", "scan", "mesh", "light"], defaultTitle: "Alerta de Segurança", defaultSubtitle: "Resposta imediata 24/7" });
+export const FrameAzul = createFrame({ name: "Azul", themeKey: "blue", bg: 2, bgStyle: "gridStrong", textures: ["grain", "grid", "radial", "rings"], defaultTitle: "Segurança Institucional", defaultSubtitle: "Tecnologia a serviço da proteção" });
+export const FrameGrafite = createFrame({ name: "Grafite", themeKey: "graphite", bg: 4, bgStyle: "desat", textures: ["grain", "scan", "grid", "mesh"], defaultTitle: "Monitoramento Neutro", defaultSubtitle: "Eficiência sem ruído visual" });
+export const FrameBrancoPredominante = createFrame({ name: "BrancoPredominante", themeKey: "white", bg: 0, bgStyle: "whitePure", textures: ["grain", "scan", "grid", "light"], defaultTitle: "Proteção Clara", defaultSubtitle: "Transparência total na segurança" });
+export const FrameBrancoMinimal = createFrame({ name: "BrancoMinimal", themeKey: "white", bg: 4, bgStyle: "minimal", textures: ["grain"], badge: "24/7", defaultTitle: "24/7", defaultSubtitle: "Sempre vigilante" });

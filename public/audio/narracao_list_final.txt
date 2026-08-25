@@ -1,0 +1,6 @@
+file 'C:\Users\Admin\Desktop\Projetos\ss-seguros-video\public\audio\s01.mp3'
+file 'C:\Users\Admin\Desktop\Projetos\ss-seguros-video\public\audio\s02.mp3'
+file 'C:\Users\Admin\Desktop\Projetos\ss-seguros-video\public\audio\s03.mp3'
+file 'C:\Users\Admin\Desktop\Projetos\ss-seguros-video\public\audio\s04.mp3'
+file 'C:\Users\Admin\Desktop\Projetos\ss-seguros-video\public\audio\s05.mp3'
+file 'C:\Users\Admin\Desktop\Projetos\ss-seguros-video\public\audio\s06.mp3'

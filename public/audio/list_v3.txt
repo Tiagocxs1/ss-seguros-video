@@ -1,0 +1,7 @@
+file 'C:\Users\Admin\AppData\Local\Temp\opencode\video-seguros\assets\narracao\blocos\hook.mp3'
+file 'C:\Users\Admin\AppData\Local\Temp\opencode\video-seguros\assets\narracao\blocos\contexto.mp3'
+file 'C:\Users\Admin\AppData\Local\Temp\opencode\video-seguros\assets\narracao\blocos\desenvolvimento.mp3'
+file 'C:\Users\Admin\AppData\Local\Temp\opencode\video-seguros\assets\narracao\blocos\prova.mp3'
+file 'C:\Users\Admin\AppData\Local\Temp\opencode\video-seguros\assets\narracao\blocos\virada.mp3'
+file 'C:\Users\Admin\AppData\Local\Temp\opencode\video-seguros\assets\narracao\blocos\licao.mp3'
+file 'C:\Users\Admin\AppData\Local\Temp\opencode\video-seguros\assets\narracao\blocos\cta.mp3'

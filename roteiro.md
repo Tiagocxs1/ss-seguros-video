@@ -16,7 +16,7 @@
 | 4 | 18–25s | NÚMEROS | Contadores animados: 24 mil clientes, 27 mil câmeras, 41 mil sensores | "São 24 mil clientes, 27 mil câmeras e 41 mil sensores protegendo a Grande Florianópolis." |
 | 5 | 25–32s | SERVIÇOS | Grid de cards: Alarme, CFTV, Controle de Acesso, Alarme de Incêndio | "Alarme de intrusão, câmeras de segurança, controle de acesso e alarme de incêndio." |
 | 6 | 32–39s | CONDOMÍNIOS | Condomínio + portaria remota animada | "Para condomínios: portaria remota 24 horas, vídeo porteiro e monitoramento colaborativo." |
-| 7 | 39–45s | VEÍCULO | Carro em mapa com rastro, ícone GPS | "E para o seu carro, rastreamento veicular em tempo real." |
+| 7 | 39–45s | PORTARIA AUTÔNOMA | Condomínio tech, portaria remota, biometria, acesso por app | "Portaria autônoma 24h: biometria, reconhecimento facial e abertura remota pelo app." |
 | 8 | 45–51s | PROCESSO | Timeline 4 passos: Alarme → Central → Polícia → Resolvido | "Ao menor sinal, a central analisa e aciona a polícia em segundos." |
 | 9 | 51–55s | CASES | Badges: Smart Fit, Posto Galo, Ponta dos Ganchos | "Smart Fit, Posto Galo, Ponta dos Ganchos. Grandes operações confiam na Guardian." |
 | 10 | 55–60s | CTA | "PROTEÇÃO REAL. PRESENÇA LOCAL." + WhatsApp (48) 3234-9001 | "Proteção real, presença local. Chame a Guardian agora." |
